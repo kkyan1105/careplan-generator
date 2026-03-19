@@ -3,7 +3,7 @@ import json
 from openai import OpenAI
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 
 # In-memory store: keyed by MRN
 care_plans = {}
@@ -86,3 +86,9 @@ def generate_careplan(request):
     }
 
     return JsonResponse({"care_plan": care_plan_text})
+
+@require_GET
+def get_careplan(request, mrn):
+    result = care_plans[mrn]
+    return JsonResponse(result)
+    
