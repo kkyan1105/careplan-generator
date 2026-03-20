@@ -4,12 +4,10 @@ from openai import OpenAI
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
-
-# In-memory store: keyed by MRN
-care_plans = {}
+from app.models import Patient, Provider, Order, CarePlan
 
 
-def build_prompt(data):
+def build_prompt(data, patient, provider):
     med_history = ", ".join(data.get("medication_history", [])) or "None reported"
     additional_dx = ", ".join(data.get("additional_diagnoses", [])) or "None"
     patient_records = data.get("patient_records", "").strip() or "None provided"
@@ -17,14 +15,14 @@ def build_prompt(data):
     return f"""You are a clinical pharmacist generating a comprehensive care plan for a specialty pharmacy patient.
 
 Patient Information:
-- Name: {data["patient_first_name"]} {data["patient_last_name"]}
-- MRN: {data["patient_mrn"]}
+- Name: {patient.first_name} {patient.last_name}
+- MRN: {patient.mrn}
 - Primary Diagnosis (ICD-10): {data["primary_diagnosis"]}
 - Additional Diagnoses: {additional_dx}
 
 Referring Provider:
-- Name: {data["referring_provider_name"]}
-- NPI: {data["referring_provider_npi"]}
+- Name: {provider.name}
+- NPI: {provider.npi}
 
 Medication Order:
 - Medication: {data["medication_name"]}
@@ -66,7 +64,32 @@ Write in a clear, professional clinical tone suitable for a specialty pharmacy c
 def generate_careplan(request):
     data = json.loads(request.body)
 
-    prompt = build_prompt(data)
+    patient, _ = Patient.objects.get_or_create(
+        mrn=data["patient_mrn"],
+        defaults={
+            "first_name": data["patient_first_name"],
+            "last_name": data["patient_last_name"],
+        },
+    )
+
+    provider, _ = Provider.objects.get_or_create(
+        npi=data["referring_provider_npi"],
+        defaults={"name": data["referring_provider_name"]},
+    )
+
+    order = Order.objects.create(
+        patient=patient,
+        provider=provider,
+        medication=data["medication_name"],
+        diagnosis=data["primary_diagnosis"],
+        additional_diagnoses=data.get("additional_diagnoses", []),
+        medication_history=data.get("medication_history", []),
+        medical_records=data.get("patient_records", ""),
+    )
+
+    care_plan = CarePlan.objects.create(order=order, content="", status="pending")
+
+    prompt = build_prompt(data, patient, provider)
 
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     message = client.chat.completions.create(
@@ -75,20 +98,21 @@ def generate_careplan(request):
         messages=[{"role": "user", "content": prompt}],
     )
 
-    care_plan_text = message.choices[0].message.content
+    care_plan.content = message.choices[0].message.content
+    care_plan.status = "completed"
+    care_plan.save()
 
-    # Store in memory
-    mrn = data["patient_mrn"]
-    care_plans[mrn] = {
-        "patient": f"{data['patient_first_name']} {data['patient_last_name']}",
-        "medication": data["medication_name"],
-        "care_plan": care_plan_text,
-    }
+    return JsonResponse({"care_plan": care_plan.content})
 
-    return JsonResponse({"care_plan": care_plan_text})
 
 @require_GET
 def get_careplan(request, mrn):
-    result = care_plans[mrn]
-    return JsonResponse(result)
-    
+    patient = Patient.objects.get(mrn=mrn)
+    order = patient.orders.order_by("-created_at").first()
+    care_plan = order.care_plan
+    return JsonResponse({
+        "patient": f"{patient.first_name} {patient.last_name}",
+        "medication": order.medication,
+        "care_plan": care_plan.content,
+        "status": care_plan.status,
+    })

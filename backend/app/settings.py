@@ -20,6 +20,21 @@ CORS_ALLOW_ALL_ORIGINS = True
 ROOT_URLCONF = "app.urls"
 WSGI_APPLICATION = "app.wsgi.application"
 
-DATABASES = {}
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+if DATABASE_URL:
+    import urllib.parse
+    r = urllib.parse.urlparse(DATABASE_URL)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": r.path.lstrip("/"),
+            "USER": r.username,
+            "PASSWORD": r.password,
+            "HOST": r.hostname,
+            "PORT": r.port or 5432,
+        }
+    }
+else:
+    DATABASES = {}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
