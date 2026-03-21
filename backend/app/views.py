@@ -1,10 +1,11 @@
-import os
 import json
-from openai import OpenAI
+import redis
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 from app.models import Patient, Provider, Order, CarePlan
+
+redis_client = redis.Redis(host="redis", port=6379)
 
 
 def build_prompt(data, patient, provider):
@@ -89,20 +90,9 @@ def generate_careplan(request):
 
     care_plan = CarePlan.objects.create(order=order, content="", status="pending")
 
-    prompt = build_prompt(data, patient, provider)
+    redis_client.rpush("careplan_queue", care_plan.id)
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    message = client.chat.completions.create(
-        model="gpt-4o-mini",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    care_plan.content = message.choices[0].message.content
-    care_plan.status = "completed"
-    care_plan.save()
-
-    return JsonResponse({"care_plan": care_plan.content})
+    return JsonResponse({"status": "pending", "careplan_id": care_plan.id})
 
 
 @require_GET

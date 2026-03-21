@@ -33,6 +33,9 @@ services:
       sh -c "python manage.py migrate &&
              python -m debugpy --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --noreload"
 
+  redis:
+    image: redis:7
+
   frontend:
     build: ./frontend
     ports:
