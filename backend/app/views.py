@@ -1,11 +1,9 @@
 import json
-import redis
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 from app.models import Patient, Provider, Order, CarePlan
-
-redis_client = redis.Redis(host="redis", port=6379)
+from app.tasks import process_careplan
 
 
 def build_prompt(data, patient, provider):
@@ -90,7 +88,7 @@ def generate_careplan(request):
 
     care_plan = CarePlan.objects.create(order=order, content="", status="pending")
 
-    redis_client.rpush("careplan_queue", care_plan.id)
+    process_careplan.delay(care_plan.id)
 
     return JsonResponse({"status": "pending", "careplan_id": care_plan.id})
 

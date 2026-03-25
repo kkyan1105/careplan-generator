@@ -36,6 +36,20 @@ services:
   redis:
     image: redis:7
 
+  celery_worker:
+    build: ./backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://careplan:careplan@db:5432/careplan
+      DJANGO_SETTINGS_MODULE: app.settings
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: celery -A app worker --loglevel=info --pool=solo
+
   frontend:
     build: ./frontend
     ports:
