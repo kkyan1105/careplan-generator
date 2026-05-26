@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const INITIAL_FORM = {
   patient_first_name: "",
@@ -28,6 +28,7 @@ const styles = {
   resultBox: { background: "#f4f7ff", border: "1px solid #c5d5f8", borderRadius: 8, padding: 24, marginTop: 32, whiteSpace: "pre-wrap", lineHeight: 1.7, fontSize: 14 },
   resultHeading: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: "#1a56db" },
   error: { color: "#c0392b", marginTop: 12, fontSize: 14 },
+  polling: { color: "#555", marginTop: 12, fontSize: 14 },
 };
 
 function Field({ label, name, value, onChange, type = "text" }) {
@@ -39,11 +40,52 @@ function Field({ label, name, value, onChange, type = "text" }) {
   );
 }
 
+const POLL_INTERVAL = 3000;
+
 export default function App() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [carePlan, setCarePlan] = useState(null);
   const [error, setError] = useState(null);
+  const [pollStatus, setPollStatus] = useState(null); // "pending" | "completed" | "failed" | null
+  const intervalRef = useRef(null);
+
+  function stopPolling() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, []);
+
+  function startPolling(careplanId) {
+    intervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/careplan/${careplanId}/status/`);
+        if (!res.ok) throw new Error("Status check failed");
+        const data = await res.json();
+
+        setPollStatus(data.status);
+
+        if (data.status === "completed") {
+          stopPolling();
+          setCarePlan(data.content);
+          setLoading(false);
+        } else if (data.status === "failed") {
+          stopPolling();
+          setError("Care plan generation failed. Please try again.");
+          setLoading(false);
+        }
+      } catch (err) {
+        stopPolling();
+        setError("Lost connection while waiting for results.");
+        setLoading(false);
+      }
+    }, POLL_INTERVAL);
+  }
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -51,9 +93,11 @@ export default function App() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    stopPolling();
     setLoading(true);
     setError(null);
     setCarePlan(null);
+    setPollStatus(null);
 
     const payload = {
       ...form,
@@ -72,13 +116,15 @@ export default function App() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      setCarePlan(data.care_plan);
+      setPollStatus("pending");
+      startPolling(data.careplan_id);
     } catch (err) {
-      setError("Failed to generate care plan. Is the backend running?");
-    } finally {
+      setError("Failed to submit. Is the backend running?");
       setLoading(false);
     }
   }
+
+  const isWorking = loading;
 
   return (
     <div style={styles.page}>
@@ -128,9 +174,13 @@ export default function App() {
           </div>
         </div>
 
-        <button type="submit" style={loading ? styles.buttonDisabled : styles.button} disabled={loading}>
-          {loading ? "Generating care plan…" : "Generate Care Plan"}
+        <button type="submit" style={isWorking ? styles.buttonDisabled : styles.button} disabled={isWorking}>
+          {isWorking ? "Generating care plan…" : "Generate Care Plan"}
         </button>
+
+        {isWorking && pollStatus === "pending" && (
+          <div style={styles.polling}>Waiting for worker… checking every 3 seconds.</div>
+        )}
 
         {error && <div style={styles.error}>{error}</div>}
       </form>

@@ -94,6 +94,19 @@ def generate_careplan(request):
 
 
 @require_GET
+def get_careplan_status(request, careplan_id):
+    try:
+        care_plan = CarePlan.objects.get(id=careplan_id)
+    except CarePlan.DoesNotExist:
+        return JsonResponse({"error": "Not found"}, status=404)
+
+    response = {"status": care_plan.status}
+    if care_plan.status == "completed":
+        response["content"] = care_plan.content
+    return JsonResponse(response)
+
+
+@require_GET
 def get_careplan(request, mrn):
     patient = Patient.objects.get(mrn=mrn)
     order = patient.orders.order_by("-created_at").first()
