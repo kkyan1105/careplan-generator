@@ -13,7 +13,12 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "app.exceptions.AppExceptionMiddleware",
 ]
+
+REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "app.exceptions.drf_exception_handler",
+}
 
 CORS_ALLOW_ALL_ORIGINS = True
 
