@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -u \"admin:admin\" \"http://localhost:3001/api/search?type=dash-db\")",
+      "Bash(python3 -c \"import sys,json; items=json.load\\(sys.stdin\\); print\\(items\\) if not isinstance\\(items, list\\) else [print\\(i.get\\('uid'\\), i.get\\('title'\\)\\) for i in items]\")"
+    ]
+  }
+}

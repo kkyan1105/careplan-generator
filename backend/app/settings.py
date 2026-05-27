@@ -7,13 +7,16 @@ ALLOWED_HOSTS = ["*"]
 INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
+    "django_prometheus",
     "app",
 ]
 
 MIDDLEWARE = [
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",  # must be first
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "app.exceptions.AppExceptionMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",   # must be last
 ]
 
 REST_FRAMEWORK = {
