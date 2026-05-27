@@ -1,6 +1,5 @@
-import os
 from celery import shared_task
-from openai import OpenAI
+from app.llm_service import get_llm_service
 from app.models import CarePlan
 
 
@@ -48,13 +47,8 @@ def process_careplan(self, careplan_id):
     care_plan.save()
 
     try:
-        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-        message = client.chat.completions.create(
-            model="gpt-4o-mini",
-            max_tokens=2048,
-            messages=[{"role": "user", "content": build_prompt(care_plan)}],
-        )
-        care_plan.content = message.choices[0].message.content
+        llm = get_llm_service()
+        care_plan.content = llm.complete(build_prompt(care_plan))
         care_plan.status = "completed"
         care_plan.save()
 

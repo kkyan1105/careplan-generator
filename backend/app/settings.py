@@ -43,3 +43,13 @@ else:
     DATABASES = {}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ── LLM configuration ─────────────────────────────────────────────────────────
+# Switch providers by changing LLM_BACKEND. No code changes needed.
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "openai")   # "openai" | "claude"
+
+OPENAI_API_KEY  = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_MODEL    = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL   = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
