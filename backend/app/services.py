@@ -1,8 +1,17 @@
+from datetime import date, datetime
+
 from django.utils import timezone
 
 from app.exceptions import BlockError, WarningException
 from app.models import Patient, Provider, Order, CarePlan
 from app.tasks import process_careplan
+
+
+def _parse_dob(dob):
+    """Accept date object or 'YYYY-MM-DD' string; return date or None."""
+    if dob is None or isinstance(dob, date):
+        return dob
+    return datetime.strptime(dob, "%Y-%m-%d").date()
 
 
 def _resolve_provider(npi, name):
@@ -20,6 +29,7 @@ def _resolve_provider(npi, name):
 
 
 def _resolve_patient(mrn, first_name, last_name, dob):
+    dob = _parse_dob(dob)
     try:
         patient = Patient.objects.get(mrn=mrn)
         name_match = patient.first_name == first_name and patient.last_name == last_name

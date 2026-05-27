@@ -59,5 +59,20 @@ services:
     depends_on:
       - backend
 
+  test:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://careplan:careplan@db:5432/careplan
+      DJANGO_SETTINGS_MODULE: app.settings
+      OPENAI_API_KEY: test-dummy-key
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: pytest tests/ -v --cov=app --cov-report=term-missing
+    profiles:
+      - test
+
 volumes:
   postgres_data:
